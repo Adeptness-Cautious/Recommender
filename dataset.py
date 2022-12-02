@@ -7,7 +7,7 @@ class RatingMatrixDataset(Dataset):
 
     # Init functions as a simple standard setup preparation of data by creating the user and item matricies.
     # For implementations that save data, saving the data past this initial init is computationally effective.
-    def __init__(self, destinations):
+    def __init__(self, destinations, neg_size):
         # Import data
         import pandas as pd
         COLS = ['user_id', 'movie_id', 'rating', 'timestamp']
@@ -33,34 +33,22 @@ class RatingMatrixDataset(Dataset):
         # Creating max value of every user rating. Normally 1, but on occasion lower.
         self.user_max = torch.max(self.user_matrix, dim=1)
 
-        # For later
-        self.gt = None
+        # For negative set later on
+        self.neg_size = neg_size
+        self.negative_set = None
 
-    def __getitem__(self, index):
-        pass
+    def __getitem__(self, idx):
+        # Getting item index and rated item
+        y = torch.where(self.user_matrix[idx] != 0)
+        z = torch.randperm(y[0].shape[0])
+        item_idx = int(y[0][int(z[0])])
+
+        # Getting negative set for each item
+        negative_set = torch.zeros(self.item_matrix.shape(0), self.neg_size)
+        
+
+        return self.user_matrix[idx], self.item_matrix[item_idx], item_idx, negative_set
 
     # Simple return length
-    def __getlen__(self):
+    def __len__(self):
         return len(self.user_matrix)
-
-    # Random shuffle also takes the time to prepare the leave-one-out pandas value
-    def random_shuffle(self):
-        # Shuffle data
-        self.user_matrix = self.user_matrix[torch.randperm(self.user_matrix.size()[0])]
-
-        # Doing leave-one-out samples and storing the ground_truth and item_index
-        # ground truth to compare answer with, item_index to not create negative of value we're trying to predict
-        # gt is rand_gt rank and then index
-        torch.set_printoptions(threshold=10000)
-        self.gt = torch.zeros(943, 2)
-        for index, row in enumerate(self.user_matrix):
-            y = torch.where(row != 0)
-            z = torch.randperm(y[0].shape[0])
-            item_idx = int(y[0][int(z[0])])
-            rand_gt = row[item_idx]
-            self.gt[index] = torch.tensor([rand_gt, item_idx])
-            row[item_idx] = 0
-
-    # For getting a subset of negative examples
-    def get_negatives(self):
-        pass
