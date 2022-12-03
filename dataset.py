@@ -51,7 +51,7 @@ class RatingMatrixDataset(Dataset):
         negative_set = [self.item_matrix[i, :] for i in item_idx_2]
         negative_set = torch.stack(negative_set)
 
-        return self.user_matrix[idx], self.item_matrix[item_idx], item_idx, negative_set
+        return self.user_matrix[idx], self.item_matrix[item_idx], item_idx, negative_set, self.user_matrix[idx][item_idx]
 
     # Simple return length
     def __len__(self):
