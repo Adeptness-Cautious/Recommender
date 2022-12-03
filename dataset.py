@@ -44,8 +44,12 @@ class RatingMatrixDataset(Dataset):
         item_idx = int(y[0][int(z[0])])
 
         # Getting negative set for each item
-        negative_set = torch.zeros(self.item_matrix.shape(0), self.neg_size)
-        
+        negative_set = torch.zeros(self.item_matrix.shape[0], self.neg_size)
+        y_2 = torch.where(self.user_matrix[idx] == 0)
+        z_2 = torch.randperm(y_2[0].shape[0])
+        item_idx_2 = torch.searchsorted(y_2[0], z_2[0:self.neg_size])
+        negative_set = [self.item_matrix[i, :] for i in item_idx_2]
+        negative_set = torch.stack(negative_set)
 
         return self.user_matrix[idx], self.item_matrix[item_idx], item_idx, negative_set
 
