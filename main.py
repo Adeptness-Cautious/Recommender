@@ -24,20 +24,32 @@ def setup():
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
                                                shuffle=True)
 
+    # Valid set
+    valid_set = RatingMatrixDataset(["./ml-100k/u1.test",
+                                     "./ml-100k/u2.test",
+                                     "./ml-100k/u3.test",
+                                     "./ml-100k/u4.test",
+                                     "./ml-100k/u5.test"],
+                                    neg_size=10)
+
+    valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=batch_size,
+                                               shuffle=False)
+
     # Model instantiation along with optimization constraints
     from model import JNCF
     JNCF = JNCF()
     from torch.optim import Adam
     optimizer = Adam(JNCF.parameters(), lr=learning_rate)
 
+    point_loss_function = torch.nn.BCEWithLogitsLoss()
+
+    total_loss = [0] * num_epochs
     # Training to now occur
     for epoch in range(num_epochs):
 
         for i, data in enumerate(train_loader, 0):
 
             v_u, v_i, item_idx, negative_set, Y_ui = data
-
-            Y_uj = torch.zeros_like(Y_ui)
 
             for v_j_idx in range(negative_set.shape[1]):
                 # Get negative_set
@@ -50,45 +62,25 @@ def setup():
                 y_i, y_j = JNCF(v_u, v_i, v_j)
 
                 # Calculate loss
-                # pairwise_loss = torch.sigmoid(y_i - y_j) + torch.sigmoid(torch.pow(y_j, 2))
-                # combine = -Y_ui * torch.log(y_i).T
-                # loss = (1 - Y_ui) * torch.log(1 - y_i).T
-                # loss = alpha * pairwise_loss + (1 - alpha) * (-Y_ui * torch.log(y_i) - (1 - Y_ui) * torch.log(1 - y_i))
-                # loss = torch.mean(loss)
+                point_loss = abs(point_loss_function(y_i.reshape(y_i.shape[0]), Y_ui.reshape(Y_ui.shape[0])))
+                pair_loss = torch.mean((torch.sigmoid(y_j - y_i) + torch.sigmoid(torch.pow(y_j, 2))))
+                loss = alpha * pair_loss + (1 - alpha) * point_loss
 
-                pointwise_i_loss = y_i.T - Y_ui
-                pointwise_j_loss = y_j.T - Y_uj
+                # Record loss
+                total_loss[epoch] += loss
 
-                loss = torch.mean(abs(pointwise_j_loss) + abs(pointwise_i_loss))
-
-                # loss = torch.
-
-                print(loss)
-
+                # Backpropagate
                 loss.backward()
                 optimizer.step()
+    print(total_loss)
 
-    # Testing set
-    test_set = RatingMatrixDataset(["./ml-100k/u1.test",
-                                    "./ml-100k/u2.test",
-                                    "./ml-100k/u3.test",
-                                    "./ml-100k/u4.test",
-                                    "./ml-100k/u5.test"],
-                                   neg_size=10)
+    plot_loss = list()
+    for tensor in total_loss:
+        plot_loss.append(tensor.item())
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
-                                               shuffle=False)
-
-    for i, data in enumerate(train_loader, 0):
-        v_u, v_i, item_idx, negative_set, Y_ui = data
-        Y_uj = torch.zeros_like(Y_ui)
-        for v_j_idx in range(negative_set.shape[1]):
-            v_j = negative_set[:, v_j_idx, :]
-            optimizer.zero_grad()
-            y_i, y_j = JNCF(v_u, v_i, v_j)
-            pointwise_i_loss = y_i.T - Y_ui
-            pointwise_j_loss = y_j.T - Y_uj
-            loss = torch.mean(abs(pointwise_j_loss) + abs(pointwise_i_loss))
+    import matplotlib.pyplot as plt
+    plt.plot(plot_loss)
+    plt.show()
 
 
 if __name__ == '__main__':
