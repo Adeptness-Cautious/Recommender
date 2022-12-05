@@ -20,7 +20,7 @@ class RatingMatrixDataset(Dataset):
                 data = pd.concat([data, new_data], axis=0)
 
         # Normalize rating data
-        data['rating'] = data['rating'] / 5
+        data['rating'] = data['rating']
         data = data.reset_index()
 
         # Create (num of users) 1x(num of movies) vectors to represent users
@@ -51,8 +51,18 @@ class RatingMatrixDataset(Dataset):
         negative_set = [self.item_matrix[i, :] for i in item_idx_2]
         negative_set = torch.stack(negative_set)
 
-        return self.user_matrix[idx], self.item_matrix[item_idx], item_idx, negative_set, self.user_matrix[idx][item_idx]
+        # Giving a version of the tensors that removes the value while not altering the original matrix
+        user = self.user_matrix[idx].clone().detach()
+        user[item_idx] = torch.tensor(0)
+        item = self.item_matrix[item_idx].clone().detach()
+        item[idx] = torch.tensor(0)
+
+        # User rated items, item matrix for item, item id, negative set, user rating
+        return user, item, item_idx, negative_set, self.user_matrix[idx][item_idx]
 
     # Simple return length
     def __len__(self):
         return len(self.user_matrix)
+
+    def get_matricies(self):
+        return self.user_matrix, self.item_matrix
