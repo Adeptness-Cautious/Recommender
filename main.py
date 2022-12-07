@@ -21,7 +21,7 @@ def JNCF():
                                      "./ml-100k/u3.base",
                                      "./ml-100k/u4.base",
                                      "./ml-100k/u5.base"],
-                                    neg_size=10)
+                                    neg_size=neg_size)
 
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
                                                shuffle=True)
@@ -53,7 +53,7 @@ def JNCF():
                 # Get outputs
                 y_i, y_j = JNCF(v_u, v_i, v_j)
 
-                # Described loss = 21%
+                # HR@10:21%
                 point_loss = abs(point_loss_function(y_i.reshape(y_i.shape[0]), Y_ui.reshape(Y_ui.shape[0])))
                 pair_loss = torch.mean((torch.sigmoid(y_j - y_i) + torch.sigmoid(torch.pow(y_j, 2))))
                 loss = alpha * pair_loss + (1 - alpha) * point_loss
@@ -98,13 +98,16 @@ def JNCF():
 
         item_ratings = np.zeros([item_matrix.shape[0]])
 
+        # The paper only rates 100 items per user
+        items_rated = 0
+
         for i_idx, item in enumerate(item_matrix):
 
             # Feed in all 0s and the rated item
             if user_matrix[i][i_idx] == 0 or i_idx == item_idx:
 
                 item = item.reshape([1, 943])
-                # We just feed in the item twice I guess?
+
                 y_i, _ = JNCF(v_u, item, item)
 
                 if y_i == torch.tensor(0):
@@ -112,9 +115,20 @@ def JNCF():
 
                 item_ratings[i_idx] = y_i
 
+            # If the 100th
+            if items_rated == 99:
+                item = item_matrix[item_idx]
+                item = item.reshape([1, 943])
+                y_i, _ = JNCF(v_u, item, item)
+                if y_i == torch.tensor(0):
+                    y_i = torch.tensor(-1)
+                item_ratings[item_idx] = y_i
+                break
+
+            items_rated += 1
+
         sort_index = np.argpartition(item_ratings, -10)[-10:]
         top_sorted = sort_index[np.argsort(item_ratings[sort_index])]
-        view_top = item_ratings[top_sorted]
 
         if int(item_idx.item()) in top_sorted:
             hit += 1
