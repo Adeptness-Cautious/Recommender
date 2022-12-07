@@ -19,6 +19,7 @@ class RatingMatrixDataset(Dataset):
                 new_data = pd.read_csv(destination, sep='\t', names=COLS).astype(int)
                 data = pd.concat([data, new_data], axis=0)
 
+        data['rating'] = data['rating'] / 5
         data = data.reset_index()
 
         # Create (num of users) 1x(num of movies) vectors to represent users
